@@ -9,11 +9,12 @@ share them or access application attributes.
 """
 
 import datetime
-import time
-import requests
-import xml.etree.ElementTree as ET
-import os
 import math
+import os
+import time
+import xml.etree.ElementTree as ET
+
+import requests
 import six
 from six.moves.urllib import parse
 
@@ -217,7 +218,7 @@ class PublicShare(ShareInfo):
 
     def __str__(self):
         return 'PublicShare(id=%i,path=%s,link=%s,token=%s)' % \
-               (self.share_id, self.target_file, self.link, self.token)
+            (self.share_id, self.target_file, self.link, self.token)
 
 
 class FileInfo(object):
@@ -297,7 +298,7 @@ class FileInfo(object):
 
     def __str__(self):
         return 'File(path=%s,file_type=%s,attributes=%s)' % \
-               (self.path, self.file_type, self.attributes)
+            (self.path, self.file_type, self.attributes)
 
     def __repr__(self):
         return self.__str__()
@@ -392,7 +393,7 @@ class Client(object):
         url_components = parse.urlparse(self.url)
         self._davpath = url_components.path + 'public.php/webdav'
         self._webdav_url = self.url + 'public.php/webdav'
-    
+
     @classmethod
     def from_public_link(cls, public_link, folder_password='', **kwargs):
         public_link_components = parse.urlparse(public_link)
@@ -502,6 +503,17 @@ class Client(object):
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
         remote_path = self._normalize_path(remote_path)
+        path_split = list(filter(None, remote_path.split("/")))
+
+        if len(path_split) > 1:
+            file_list = [x.get_name() for x in self.list(self._normalize_path("/".join(path_split[0:-1])))]
+            if path_split[-1] not in file_list:
+                raise FileNotFoundError(f"Remote file {path_split[-1]} not exist, please check!")
+        else:
+            file_list = [x.get_name() for x in self.list(path="./")]
+            if path_split[0] not in file_list:
+                raise FileNotFoundError(f"Remote file {path_split[-1]} not exist, please check!")
+
         res = self._session.get(
             self._webdav_url + parse.quote(self._encode_string(remote_path)),
             stream=True
@@ -846,7 +858,7 @@ class Client(object):
         """
 
         return self._webdav_move_copy(remote_path_source, remote_path_target,
-                                       "MOVE")
+                                      "MOVE")
 
     def copy(self, remote_path_source, remote_path_target):
         """Copies a remote file or directory
@@ -858,7 +870,7 @@ class Client(object):
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
         return self._webdav_move_copy(remote_path_source, remote_path_target,
-                                       "COPY")
+                                      "COPY")
 
     def share_file_with_link(self, path, **kwargs):
         """Shares a remote file with link
@@ -904,13 +916,13 @@ class Client(object):
             self._check_ocs_status(tree)
             data_el = tree.find('data')
             return ShareInfo(
-                                {
-                                    'id': data_el.find('id').text,
-                                    'path': path,
-                                    'url': data_el.find('url').text,
-                                    'token': data_el.find('token').text,
-                                    'name': data_el.find('name').text
-                                }
+                {
+                    'id': data_el.find('id').text,
+                    'path': path,
+                    'url': data_el.find('url').text,
+                    'token': data_el.find('token').text,
+                    'name': data_el.find('name').text
+                }
             )
         raise HTTPResponseError(res)
 
@@ -944,10 +956,10 @@ class Client(object):
             return None
 
         res = self._make_ocs_request(
-                'GET',
-                self.OCS_SERVICE_SHARE,
-                'shares/' + str(share_id)
-                )
+            'GET',
+            self.OCS_SERVICE_SHARE,
+            'shares/' + str(share_id)
+        )
         if res.status_code == 200:
             tree = ET.fromstring(res.content)
             self._check_ocs_status(tree)
@@ -1340,11 +1352,11 @@ class Client(object):
             self._check_ocs_status(tree)
             data_el = tree.find('data')
             return ShareInfo(
-                                {
-                                    'id': data_el.find('id').text,
-                                    'path': path,
-                                    'permissions': perms
-                                }
+                {
+                    'id': data_el.find('id').text,
+                    'path': path,
+                    'permissions': perms
+                }
             )
         raise HTTPResponseError(res)
 
@@ -1497,11 +1509,11 @@ class Client(object):
             self._check_ocs_status(tree)
             data_el = tree.find('data')
             return ShareInfo(
-                                {
-                                    'id': data_el.find('id').text,
-                                    'path': path,
-                                    'permissions': perms
-                                }
+                {
+                    'id': data_el.find('id').text,
+                    'path': path,
+                    'permissions': perms
+                }
             )
         raise HTTPResponseError(res)
 
@@ -1724,10 +1736,10 @@ class Client(object):
     def _check_ocs_status(tree, accepted_codes=[100]):
         """Checks the status code of an OCS request
 
-        :param tree: response parsed with elementtree
-        :param accepted_codes: list of statuscodes we consider good. E.g. [100,102] can be used to accept a POST
-               returning an 'already exists' condition
-        :raises: HTTPResponseError if the http status is not 200, or OCSResponseError if the OCS status is not one of the accepted_codes.
+        :param tree: response parsed with elementtree :param accepted_codes: list of status codes we consider good.
+        E.g. [100,102] can be used to accept a POST returning an 'already exists' condition :raises:
+        HTTPResponseError if the http status is not 200, or OCSResponseError if the OCS status is not one of the
+        accepted_codes.
         """
         code_el = tree.find('meta/statuscode')
         if code_el is not None and int(code_el.text) not in accepted_codes:
@@ -1867,7 +1879,7 @@ class Client(object):
         return path
 
     def _webdav_move_copy(self, remote_path_source, remote_path_target,
-                           operation):
+                          operation):
         """Copies or moves a remote file or directory
 
         :param remote_path_source: source file or folder to copy / move
@@ -1928,10 +1940,10 @@ class Client(object):
 
     def _update_capabilities(self):
         res = self._make_ocs_request(
-                'GET',
-                self.OCS_SERVICE_CLOUD,
-                'capabilities'
-                )
+            'GET',
+            self.OCS_SERVICE_CLOUD,
+            'capabilities'
+        )
         if res.status_code == 200:
             tree = ET.fromstring(res.content)
             self._check_ocs_status(tree)
