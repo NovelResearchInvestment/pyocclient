@@ -504,15 +504,20 @@ class Client(object):
         """
         remote_path = self._normalize_path(remote_path)
         path_split = list(filter(None, remote_path.split("/")))
-
-        if len(path_split) > 1:
-            file_list = [x.get_name() for x in self.list(self._normalize_path("/".join(path_split[0:-1])))]
-            if path_split[-1] not in file_list:
+        try:
+            if len(path_split) > 1:
+                file_list = [x.get_name() for x in self.list(self._normalize_path("/".join(path_split[0:-1])))]
+                if path_split[-1] not in file_list:
+                    raise FileNotFoundError(f"Remote file {path_split[-1]} not exist, please check!")
+            else:
+                file_list = [x.get_name() for x in self.list(path="./")]
+                if path_split[0] not in file_list:
+                    raise FileNotFoundError(f"Remote file {path_split[-1]} not exist, please check!")
+        except HTTPResponseError as e:
+            if e.status_code == 404:
                 raise FileNotFoundError(f"Remote file {path_split[-1]} not exist, please check!")
-        else:
-            file_list = [x.get_name() for x in self.list(path="./")]
-            if path_split[0] not in file_list:
-                raise FileNotFoundError(f"Remote file {path_split[-1]} not exist, please check!")
+            else:
+                raise e
 
         res = self._session.get(
             self._webdav_url + parse.quote(self._encode_string(remote_path)),
@@ -921,7 +926,7 @@ class Client(object):
                     'path': path,
                     'url': data_el.find('url').text,
                     'token': data_el.find('token').text,
-                    'name': data_el.find('name').text
+                    'name': name.text if (name := data_el.find('name')) else None
                 }
             )
         raise HTTPResponseError(res)
