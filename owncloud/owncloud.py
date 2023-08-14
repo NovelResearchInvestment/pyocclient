@@ -598,6 +598,9 @@ class Client(object):
         :returns: True if the operation succeeded, False otherwise
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
+        if self.check_remote_path(path=remote_path):
+            raise FileExistsError(f"Remote file {remote_path} exist, please check!")
+
         if kwargs.get('chunked', True):
             return self._put_file_chunked(
                 remote_path,
