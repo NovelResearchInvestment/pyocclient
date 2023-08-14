@@ -394,7 +394,24 @@ class Client(object):
         self._davpath = url_components.path + 'public.php/webdav'
         self._webdav_url = self.url + 'public.php/webdav'
 
-    def check_remote_path(self, path: str):
+    def check_remote_path_exist(self, path: str):
+        path_split = list(filter(None, path.split("/")))
+        try:
+            if len(path_split) > 1:
+                file_list = [x.get_name() for x in self.list(self._normalize_path("/".join(path_split[0:-1])))]
+                if path_split[-1] in file_list:
+                    raise FileNotFoundError(f"Remote file {path_split[-1]} exist, please check!")
+            else:
+                file_list = [x.get_name() for x in self.list(path="./")]
+                if path_split[0] in file_list:
+                    raise FileNotFoundError(f"Remote file {path_split[-1]} exist, please check!")
+        except HTTPResponseError as e:
+            if e.status_code == 404:
+                raise FileNotFoundError(f"Remote file path {path_split[-1]} error, please check!")
+            else:
+                raise e
+
+    def check_remote_path_no_exist(self, path: str):
         path_split = list(filter(None, path.split("/")))
         try:
             if len(path_split) > 1:
@@ -520,7 +537,7 @@ class Client(object):
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
         remote_path = self._normalize_path(remote_path)
-        self.check_remote_path(path=remote_path)
+        self.check_remote_path_no_exist(path=remote_path)
 
         res = self._session.get(
             self._webdav_url + parse.quote(self._encode_string(remote_path)),
@@ -722,7 +739,7 @@ class Client(object):
         if not path.endswith('/'):
             path += '/'
 
-        self.check_remote_path(path=path)
+        self.check_remote_path_exist(path=path)
 
         return self._make_dav_request('MKCOL', path)
 
@@ -733,7 +750,7 @@ class Client(object):
         :returns: True if the operation succeeded, False otherwise
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
-        self.check_remote_path(path=path)
+        self.check_remote_path_no_exist(path=path)
         return self._make_dav_request('DELETE', path)
 
     def list_open_remote_share(self):
