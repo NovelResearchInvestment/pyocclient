@@ -527,7 +527,7 @@ class Client(object):
         """
         remote_path = self._normalize_path(remote_path)
         if self.check_remote_path(path=remote_path):
-            raise FileNotFoundError(f"Remote file {remote_path} not exist, please check!")
+            raise FileNotFoundError(f"get_file function error: Remote file {remote_path} not exist, please check!")
 
         res = self._session.get(
             self._webdav_url + parse.quote(self._encode_string(remote_path)),
@@ -599,7 +599,7 @@ class Client(object):
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
         if self.check_remote_path(path=remote_path):
-            raise FileExistsError(f"Remote file {remote_path} exist, please check!")
+            raise FileExistsError(f"put_file function error: Remote file {remote_path} exist, please check!")
 
         if kwargs.get('chunked', True):
             return self._put_file_chunked(
@@ -733,7 +733,7 @@ class Client(object):
             path += '/'
 
         if self.check_remote_path(path=path):
-            raise FileExistsError(f"Remote file {path} exist, please check!")
+            raise FileExistsError(f"mkdir function error: Remote file {path} exist, please check!")
 
         return self._make_dav_request('MKCOL', path)
 
@@ -745,7 +745,7 @@ class Client(object):
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
         if not self.check_remote_path(path=path):
-            raise FileNotFoundError(f"Remote file {path} not exist, please check!")
+            raise FileNotFoundError(f"delete function error: Remote file {path} not exist, please check!")
         return self._make_dav_request('DELETE', path)
 
     def list_open_remote_share(self):
@@ -910,6 +910,8 @@ class Client(object):
             or False if the operation failed
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
+        if not self.check_remote_path(path=path):
+            raise FileNotFoundError(f"share_file_with_link function error: Remote file {path} not exist, please check!")
         perms = kwargs.get('perms', None)
         public_upload = kwargs.get('public_upload', 'false')
         password = kwargs.get('password', None)
