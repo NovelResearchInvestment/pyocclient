@@ -526,7 +526,7 @@ class Client(object):
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
         remote_path = self._normalize_path(remote_path)
-        if self.check_remote_path(path=remote_path):
+        if not self.check_remote_path(path=remote_path):
             raise FileNotFoundError(f"get_file function error: Remote file {remote_path} not exist, please check!")
 
         res = self._session.get(
