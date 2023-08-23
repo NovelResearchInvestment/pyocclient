@@ -585,7 +585,7 @@ class Client(object):
         """
         return self._make_dav_request('PUT', remote_path, data=data)
 
-    def put_file(self, remote_path, local_source_file, **kwargs):
+    def put_file(self, remote_path, local_source_file, cover=False, **kwargs):
         """Upload a file
 
         :param remote_path: path to the target file. A target directory can
@@ -594,11 +594,12 @@ class Client(object):
         :param chunked: (optional) use file chunking (defaults to True)
         :param chunk_size: (optional) chunk size in bytes, defaults to 10 MB
         :param keep_mtime: (optional) also update the remote file to the same
+        :param cover:
             mtime as the local one, defaults to True
         :returns: True if the operation succeeded, False otherwise
         :raises: HTTPResponseError in case an HTTP error status was returned
         """
-        if self.check_remote_path(path=remote_path):
+        if self.check_remote_path(path=remote_path) and not cover:
             raise FileExistsError(f"put_file function error: Remote file {remote_path} exist, please check!")
 
         if kwargs.get('chunked', True):
