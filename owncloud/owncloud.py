@@ -461,12 +461,16 @@ class Client(object):
             return res[0]
         return None
 
-    def list(self, path, depth=1, properties=None):
+    def list(self, path, depth=1, properties=None, sort_by=None):
         """Returns the listing/contents of the given remote directory
 
         :param path: path to the remote directory
         :param depth: depth of the listing, integer or "infinity"
         :param properties: a list of properties to request (optional)
+        :param sort_by: optional sort key for the returned list. Accepted
+            values: None (default, no sorting), 'name' (filename ascending),
+            'mtime' (modification time ascending). If a FileInfo doesn't
+            expose mtime, items without mtime will be considered older.
         :returns: directory listing
         :rtype: array of :class:`FileInfo` objects
         :raises: HTTPResponseError in case an HTTP error status was returned
@@ -494,9 +498,78 @@ class Client(object):
 
         res = self._make_dav_request('PROPFIND', path, headers=headers, data=data)
         # first one is always the root, remove it from listing
-        if res:
-            return res[1:]
-        return None
+        if not res:
+            return None
+
+        listing = res[1:]
+
+        # If sorting was requested, try to sort based on available attributes
+        if sort_by:
+            if sort_by == 'name':
+                try:
+                    listing.sort(key=lambda fi: fi.get_name() if hasattr(fi, 'get_name') else str(fi))
+                except Exception:
+                    # If FileInfo doesn't support get_name, fallback to string
+                    listing.sort(key=lambda fi: str(fi))
+            elif sort_by == 'mtime':
+                # Try to sort by modification time. FileInfo may expose
+                # get_mtime() or an attribute 'mtime' or a property in
+                # get_properties(). We'll try a few fallbacks.
+                def _mtime_of(fi):
+                    # Prefer get_mtime method
+                    if hasattr(fi, 'get_mtime') and callable(getattr(fi, 'get_mtime')):
+                        try:
+                            v = fi.get_mtime()
+                            if v is None:
+                                return -1
+                            return float(v)
+                        except Exception:
+                            pass
+                    # Try attribute
+                    if hasattr(fi, 'mtime'):
+                        try:
+                            v = getattr(fi, 'mtime')
+                            if v is None:
+                                return -1
+                            return float(v)
+                        except Exception:
+                            pass
+                    # Try properties dict or method
+                    try:
+                        props = None
+                        if hasattr(fi, 'get_properties') and callable(getattr(fi, 'get_properties')):
+                            props = fi.get_properties()
+                        elif hasattr(fi, 'properties'):
+                            props = getattr(fi, 'properties')
+                        if isinstance(props, dict):
+                            # common WebDAV/OCS property names
+                            for key in ('getlastmodified', 'mtime', 'modified', 'oc:mtime'):
+                                if key in props and props[key] is not None:
+                                    try:
+                                        return float(props[key])
+                                    except Exception:
+                                        # try parsing RFC1123 date
+                                        try:
+                                            from email.utils import parsedate_to_datetime
+                                            dt = parsedate_to_datetime(props[key])
+                                            return dt.timestamp()
+                                        except Exception:
+                                            pass
+                    except Exception:
+                        pass
+                    # If nothing found, return -1 so these appear first
+                    return -1
+
+                try:
+                    listing.sort(key=_mtime_of)
+                except Exception:
+                    # Fall back to name sort if mtime sorting fails
+                    listing.sort(key=lambda fi: fi.get_name() if hasattr(fi, 'get_name') else str(fi))
+            else:
+                # Unknown sort key: ignore and return unsorted
+                pass
+
+        return listing
 
     def get_file_contents(self, path):
         """Returns the contents of a remote file
@@ -1755,7 +1828,7 @@ class Client(object):
         :param s: str or unicode to encode
         :returns: encoded output as str
         """
-        if six.PY2 and isinstance(s, unicode):  # noqa: F821
+        if six.PY2 and isinstance(s, six.text_type):
             return s.encode('utf-8')
         return s
 
